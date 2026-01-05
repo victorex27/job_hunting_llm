@@ -10,11 +10,13 @@ This project provides a simple yet powerful interface to interact with local LLM
 
 ## Features
 
-- 🚀 Simple HTTP client for Ollama API
-- 🎯 Temperature-based response comparison
-- ⚙️ Configurable model parameters
-- 🔄 Context-aware request handling
-- 📊 Side-by-side output comparison
+- 🚀 **Simple HTTP client** for Ollama API
+- 🎯 **Temperature-based response comparison** (low vs high temperature)
+- 🧾 **Resume generator**: extract skills from a job description and generate 3 professional resume bullet points (JSON output)
+- 🧩 **JSON format output** support via the `Format` field (e.g., `"json"`) to make responses machine-parseable
+- ⚙️ **Configurable model parameters** (temperature, model name, streaming)
+- 🔄 **Context-aware request handling**
+- 📊 **Side-by-side output comparison**
 
 ## Prerequisites
 
@@ -69,20 +71,24 @@ go mod download
 ```
 .
 ├── cmd/
-│   └── main.go           # Application entry point
+│   ├── main.go                # Default application entry point (prompt comparison)
+│   └── resume_generator/
+│       └── main.go            # Resume generator demo (extract skills, output JSON bullets)
 ├── pkg/
-│   └── llm/
-│       ├── client.go     # HTTP client implementation
-│       └── types.go      # Request/Response types
-├── go.mod                # Go module definition
-├── Makefile              # Build and setup automation
-├── README.md             # This file
-└── .gitignore            # Git ignore rules
+│   ├── llm/
+│   │   ├── client.go          # HTTP client implementation
+│   │   └── types.go           # Request/Response types (includes `Format` field)
+│   └── resume/
+│       └── types.go           # Types for resume generator (e.g., GeneratedBullets)
+├── go.mod                     # Go module definition
+├── Makefile                   # Build and setup automation
+├── README.md                  # This file
+└── .gitignore                 # Git ignore rules
 ```
 
 ## Usage
 
-### Running the Application
+### Running the Application (Prompt Comparison)
 
 ```bash
 # Run directly with Go
@@ -93,7 +99,18 @@ go build -o bin/llm cmd/main.go
 ./bin/llm
 ```
 
+### Resume Generator
+
+The project includes a demo command to generate resume bullet points from a job description. It instructs the LLM to extract key skills and return a JSON object containing `bullets`.
+
+```bash
+# Run the resume generator demo
+go run cmd/resume_generator/main.go
+```
+
 ### Expected Output
+
+Prompt comparison output remains as before:
 
 ```
 === Generating Report ===
@@ -105,6 +122,29 @@ Prompt: Explain the concept of 'Recursion' to a junior developer in one sentence
 [Temp 0.9]: Imagine a function that's like a mirror reflecting itself, creating...
 ================================
 ```
+
+Resume generator output (example):
+
+```
+Generating resume bullets...
+Successfully generated 3 bullets:
+- Designed and implemented scalable microservices in Go using Docker and Kubernetes, improving deployment reliability by 30%.
+- Built CI/CD pipelines and containerization strategies that reduced release time by 40%.
+- Led a performance tuning effort for distributed services achieving 2x throughput under load.
+```
+
+Or the raw JSON response (when `Format: "json"` is used):
+
+```json
+{
+  "bullets": [
+    "First bullet point here.",
+    "Second bullet point here.",
+    "Third bullet point here."
+  ]
+}
+```
+
 
 ## Configuration
 
@@ -167,9 +207,21 @@ req := llm.GenerateRequest{
     Options: &llm.Options{
         Temperature: &temp,
     },
+    // Request a JSON-formatted response that can be unmarshaled by the client
+    Format: "json",
 }
 
 response, err := client.Generate(ctx, req)
+```
+
+If `Format: "json"` is used, the `response.Response` field will contain a JSON string. For example, the resume generator returns a JSON object that can be unmarshaled into a `resume.GeneratedBullets` struct:
+
+```go
+var bullets resume.GeneratedBullets
+err = json.Unmarshal([]byte(response.Response), &bullets)
+if err != nil {
+    log.Fatalf("Failed to parse JSON response: %v", err)
+}
 ```
 
 ## Troubleshooting
